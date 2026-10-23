@@ -1,14 +1,25 @@
 # Caption Editor Bot
 
-A Telegram bot that edits or removes the caption of files you send it.
-Works with photos, videos, documents, audio, voice notes and GIFs. It re-sends
-files by Telegram file ID, so nothing is downloaded and big files work too.
+A Telegram bot that edits the caption of files you send it, using a button
+panel under the file. Works with photos, videos, documents, audio, voice notes
+and GIFs. It re-sends files by Telegram file ID, so nothing is downloaded and
+big files work too.
 
 ## Use
-- Send or forward a file: the bot returns it with the caption changed.
-- `/mode remove|replace|append|prepend` picks what happens (default: remove).
-- `/caption <text>` sets the text for replace/append/prepend.
-- `/status` shows settings, `/reset` restores defaults.
+Send or forward a file. The bot sends it back with these buttons:
+
+- **Remove ID** - removes @usernames
+- **Remove link** - removes links
+- **Remove #** - removes hashtags
+- **Default text** - adds your saved default text
+- **Delete text** - removes the text you added
+- **At Top / At Bottom** - where the added text goes
+- **Add new text** - the bot asks for a text, then adds it
+- **Done** - finishes and removes the buttons
+
+Commands:
+- `/settext <text>` saves your default text
+- `/status` shows it, `/cancel` cancels "Add new text", `/reset` clears settings
 
 ## Create the bot
 1. Chat with @BotFather on Telegram, send `/newbot`, copy the token.
@@ -29,6 +40,6 @@ python bot.py
 Notes:
 - Render's free tier has no background workers. Use a paid worker or a Web
   Service with a small health endpoint.
-- User settings are saved in `bot_data.pickle`. On Render this file resets on
-  each deploy unless you attach a persistent disk. If it resets, users simply
-  start again with the default mode.
+- Settings and button panels are saved in `bot_data.pickle`. On Render this
+  file resets on each deploy unless you attach a persistent disk. Old panels
+  then stop working and users just send the file again.
