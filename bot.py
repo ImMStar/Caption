@@ -29,21 +29,21 @@ CAPTION_LIMIT = 1024
 MAX_STORED = 500  # how many media panels to remember
 
 HELP = (
-    "Send or forward any photo, video, document, audio, voice or GIF.\n"
-    "I'll send it back with a button panel under it:\n\n"
-    "Remove ID - remove @usernames\n"
-    "Remove link - remove links\n"
-    "Remove # - remove hashtags\n"
-    "Default text - add your saved default text\n"
-    "Delete text - remove the text you added\n"
-    "At Top / At Bottom - where the added text goes\n"
-    "Add new text - send me a new text to add\n"
-    "Done - finish and remove the buttons\n\n"
+    "Send or forward any photo, video, document, audio, voice note or GIF.\n"
+    "I'll return it with an edit panel underneath:\n\n"
+    "Drop @user - strips @usernames\n"
+    "Drop links - strips all links\n"
+    "Drop #tags - strips hashtags\n"
+    "Saved text - inserts the text you saved\n"
+    "Clear text - takes out the text you inserted\n"
+    "Top / Bottom - where the inserted text goes\n"
+    "Write text - type a fresh text to insert\n"
+    "Finish - closes the panel\n\n"
     "Commands:\n"
-    "/settext <text> - save your default text\n"
-    "/status - show your default text\n"
-    "/cancel - cancel 'Add new text'\n"
-    "/reset - clear your saved settings"
+    "/settext <text> - save your text\n"
+    "/status - view your saved text\n"
+    "/cancel - stop 'Write text'\n"
+    "/reset - wipe your saved settings"
 )
 
 URL_RE = re.compile(r"(?:https?://|www\.|t\.me/|telegram\.me/)\S+", re.I)
@@ -113,23 +113,23 @@ def keyboard(st: dict) -> InlineKeyboardMarkup:
 
     def pos(label, data, on):
         return InlineKeyboardButton(
-            ("✅ " if on else "➕ ") + label, callback_data=data
+            ("✅ " if on else "") + label, callback_data=data
         )
 
     return InlineKeyboardMarkup(
         [
             [
-                b("Remove ID", "rm_id", st["rm_id"]),
-                b("Remove link", "rm_link", st["rm_link"]),
-                b("Remove #", "rm_tag", st["rm_tag"]),
+                b("Drop @user", "rm_id", st["rm_id"]),
+                b("Drop links", "rm_link", st["rm_link"]),
+                b("Drop #tags", "rm_tag", st["rm_tag"]),
             ],
-            [b("Default text", "default"), b("Delete text", "del")],
+            [b("Saved text", "default"), b("Clear text", "del")],
             [
-                pos("At Top", "top", st["pos"] == "top"),
-                pos("At Bottom", "bottom", st["pos"] == "bottom"),
+                pos("⬆ Top", "top", st["pos"] == "top"),
+                pos("⬇ Bottom", "bottom", st["pos"] == "bottom"),
             ],
-            [InlineKeyboardButton("➕ Add new text", callback_data="add")],
-            [InlineKeyboardButton("✅ Done", callback_data="done")],
+            [InlineKeyboardButton("✏️ Write text", callback_data="add")],
+            [InlineKeyboardButton("✔️ Finish", callback_data="done")],
         ]
     )
 
@@ -178,20 +178,20 @@ async def settext_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Usage: /settext Your default text")
         return
     if too_long(text):
-        await update.message.reply_text("Text is too long (max 1024 characters).")
+        await update.message.reply_text("That text is too long (1024 characters max).")
         return
     context.user_data["default_text"] = text
-    await update.message.reply_text("Default text saved.")
+    await update.message.reply_text("Your text is saved.")
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = context.user_data.get("default_text")
     if text:
         await update.message.reply_text(
-            "Default text:\n\n" + text, parse_mode=ParseMode.HTML
+            "Your saved text:\n\n" + text, parse_mode=ParseMode.HTML
         )
     else:
-        await update.message.reply_text("No default text. Set one with /settext <text>")
+        await update.message.reply_text("Nothing saved yet. Use /settext <text>")
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -201,7 +201,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
-    await update.message.reply_text("Your saved settings were cleared.")
+    await update.message.reply_text("Your saved settings have been wiped.")
 
 
 # ---------- media ----------
@@ -262,12 +262,12 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     st = store(context).get(key)
 
     if st is None:
-        await q.answer("This panel expired. Please send the file again.", show_alert=True)
+        await q.answer("This panel is no longer active. Send the file again.", show_alert=True)
         return
 
     if action == "done":
         store(context).pop(key, None)
-        await q.answer("Done ✅")
+        await q.answer("Finished ✅")
         try:
             await msg.edit_reply_markup(reply_markup=None)
         except BadRequest:
@@ -277,7 +277,7 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if action == "add":
         await q.answer()
         prompt = await msg.reply_text(
-            "Send the new text you want to add (or /cancel).",
+            "Type the text you'd like to insert, or send /cancel to stop.",
             reply_to_message_id=msg.message_id,
         )
         context.user_data["pending"] = {"key": key, "prompt": prompt.message_id}
@@ -292,7 +292,7 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         new["text"] = ""
     elif action == "default":
         if not default:
-            await q.answer("No default text yet. Use /settext <text>", show_alert=True)
+            await q.answer("You have no saved text yet. Use /settext <text>", show_alert=True)
             return
         new["text"] = default
     elif action in ("top", "bottom"):
@@ -301,14 +301,14 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if default:
                 new["text"] = default
             else:
-                await q.answer("Use 'Add new text' or /settext first.", show_alert=True)
+                await q.answer("Tap 'Write text' or use /settext first.", show_alert=True)
                 return
     else:
         await q.answer()
         return
 
     if too_long(render(new)):
-        await q.answer("Caption would exceed 1024 characters.", show_alert=True)
+        await q.answer("That would push the caption past 1024 characters.", show_alert=True)
         return
 
     store(context)[key] = new
@@ -317,27 +317,27 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.answer()
     except BadRequest as e:
         log.warning("Edit failed: %s", e)
-        await q.answer("Could not update the caption.", show_alert=True)
+        await q.answer("Couldn't update the caption.", show_alert=True)
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     m = update.message
     pending = context.user_data.get("pending")
     if not pending:
-        await m.reply_text("Send me a file to edit its caption. /help for info.")
+        await m.reply_text("Send me a file and I'll help you edit its caption. See /help.")
         return
 
     st = store(context).get(pending["key"])
     chat_id, msg_id = pending["key"].split(":")
     context.user_data.pop("pending", None)
     if st is None:
-        await m.reply_text("That panel expired. Please send the file again.")
+        await m.reply_text("That panel is no longer active. Send the file again.")
         return
 
     new = dict(st)
     new["text"] = m.text_html
     if too_long(render(new)):
-        await m.reply_text("Caption would exceed 1024 characters. Try a shorter text.")
+        await m.reply_text("That would push the caption past 1024 characters. Try something shorter.")
         return
 
     store(context)[pending["key"]] = new
@@ -345,7 +345,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await refresh(context.bot, int(chat_id), int(msg_id), new)
     except BadRequest as e:
         log.warning("Edit failed: %s", e)
-        await m.reply_text("Could not update the caption.")
+        await m.reply_text("Couldn't update the caption.")
         return
 
     # Tidy the chat: remove the prompt and the user's text message.
