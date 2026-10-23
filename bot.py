@@ -2,6 +2,8 @@ import html
 import logging
 import os
 import re
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
@@ -354,7 +356,31 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
 
 
+class Health(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"ok")
+
+    do_HEAD = do_GET
+
+    def log_message(self, *args):
+        pass
+
+
+def start_health_server():
+    """Render Web Services must listen on $PORT, otherwise the deploy times out."""
+    port = os.environ.get("PORT")
+    if not port:
+        return
+    server = ThreadingHTTPServer(("0.0.0.0", int(port)), Health)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    log.info("Health server listening on port %s", port)
+
+
 def main():
+    start_health_server()
     persistence = PicklePersistence(filepath=DATA_FILE)
     app = Application.builder().token(BOT_TOKEN).persistence(persistence).build()
 
