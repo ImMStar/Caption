@@ -1,6 +1,8 @@
 import html
 import logging
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -39,6 +41,32 @@ HELP = (
     "/reset - go back to defaults\n\n"
     "Tip: send several files in a row and I'll process each one."
 )
+
+
+class Health(BaseHTTPRequestHandler):
+    """Tiny web page so Render's free Web Service sees an open port."""
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Caption editor bot is running")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
+
+    def log_message(self, *args):
+        pass
+
+
+def start_health_server():
+    port = os.environ.get("PORT")
+    if not port:
+        return  # running locally or as a Background Worker
+    server = HTTPServer(("0.0.0.0", int(port)), Health)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    log.info("Health server listening on port %s", port)
 
 
 def settings(context: ContextTypes.DEFAULT_TYPE) -> dict:
@@ -142,6 +170,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
+    start_health_server()
     persistence = PicklePersistence(filepath=DATA_FILE)
     app = Application.builder().token(BOT_TOKEN).persistence(persistence).build()
 
